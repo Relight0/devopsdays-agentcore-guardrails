@@ -36,10 +36,12 @@ data "aws_iam_policy_document" "trust_plan" {
     condition {
       test     = "StringEquals"
       variable = "${local.oidc_host}:sub"
-      values = [
-        "repo:${local.repo}:pull_request",
-        "repo:${local.repo}:ref:refs/heads/main",
-      ]
+      values = flatten([
+        for r in [local.repo, local.repo_ids] : [
+          "repo:${r}:pull_request",
+          "repo:${r}:ref:refs/heads/main",
+        ]
+      ])
     }
   }
 }
@@ -63,7 +65,9 @@ data "aws_iam_policy_document" "trust_deploy" {
     condition {
       test     = "StringEquals"
       variable = "${local.oidc_host}:sub"
-      values   = ["repo:${local.repo}:environment:${var.github_environment}"]
+      values = [
+        for r in [local.repo, local.repo_ids] : "repo:${r}:environment:${var.github_environment}"
+      ]
     }
   }
 }

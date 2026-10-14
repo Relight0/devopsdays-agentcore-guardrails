@@ -37,3 +37,13 @@ variable "create_oidc_provider" {
   description = "false si la cuenta ya tiene el OIDC provider de GitHub (solo puede haber uno)."
   type        = bool
 }
+
+variable "github_owner_id" {
+  description = "ID numerico del owner; GitHub lo incluye en el sub del token OIDC."
+  type        = number
+}
+
+variable "github_repo_id" {
+  description = "ID numerico del repo; GitHub lo incluye en el sub del token OIDC."
+  type        = number
+}

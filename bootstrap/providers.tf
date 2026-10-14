@@ -19,4 +19,5 @@ locals {
   repo         = "${var.github_owner}/${var.github_repo}"
   oidc_host    = "token.actions.githubusercontent.com"
   state_bucket = "${var.state_bucket_prefix}-${local.account_id}"
+  repo_ids     = "${var.github_owner}@${var.github_owner_id}/${var.github_repo}@${var.github_repo_id}"
 }

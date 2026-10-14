@@ -6,3 +6,5 @@ project_name          = "orphan-hunter-demo"
 state_bucket_prefix   = "agentcore-guardrails-tfstate"
 state_noncurrent_days = 90
 create_oidc_provider  = false
+github_owner_id       = 127477282
+github_repo_id        = 1418144026
