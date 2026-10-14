@@ -58,6 +58,13 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+          fetch-depth: 0
+
+      - id: scope
+        if: github.event_name == 'pull_request'
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+        run: echo "args=$(scripts/tf_scope.sh "$BASE")" >> "$GITHUB_OUTPUT"
 
       - id: version
         run: echo "terraform=$(cat .terraform-version)" >> "$GITHUB_OUTPUT"
@@ -84,7 +91,12 @@ jobs:
           terraform -chdir="$TF_DIR" init -backend-config="bucket=$TF_STATE_BUCKET" -backend-config="region=$AWS_REGION"
 
       - name: terraform plan
-        run: terraform -chdir="$TF_DIR" plan -no-color -lock-timeout=5m | tee plan.txt
+        env:
+          SCOPE: ${{ steps.scope.outputs.args }}
+        run: |
+          # Un cambio solo de trust_level toca solo las policies, igual que la escalera en local.
+          # shellcheck disable=SC2086
+          terraform -chdir="$TF_DIR" plan -no-color -lock-timeout=5m $SCOPE | tee plan.txt
 
       - name: Comentar el plan en el PR
         if: github.event_name == 'pull_request'
@@ -123,6 +135,11 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+          fetch-depth: 2
+
+      - id: scope
+        if: github.event_name == 'push'
+        run: echo "args=$(scripts/tf_scope.sh HEAD~1)" >> "$GITHUB_OUTPUT"
 
       - id: version
         run: echo "terraform=$(cat .terraform-version)" >> "$GITHUB_OUTPUT"
@@ -157,7 +174,11 @@ jobs:
           terraform -chdir="$TF_DIR" init -backend-config="bucket=$TF_STATE_BUCKET" -backend-config="region=$AWS_REGION"
 
       - name: terraform apply
-        run: terraform -chdir="$TF_DIR" apply -auto-approve -lock-timeout=5m
+        env:
+          SCOPE: ${{ steps.scope.outputs.args }}
+        run: |
+          # shellcheck disable=SC2086
+          terraform -chdir="$TF_DIR" apply -auto-approve -lock-timeout=5m $SCOPE
 
       - name: Registrar el nivel aplicado en el ledger
         run: python scripts/ladder.py sync
