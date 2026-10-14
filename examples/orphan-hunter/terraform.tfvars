@@ -10,4 +10,4 @@ notify_email             = "josem.vanegasa@gmail.com"
 log_retention_days       = 7
 permissions_boundary_arn = null
 
-trust_level = 0
+trust_level = 1
