@@ -1,0 +1,153 @@
+name: demo
+run-name: "demo · ${{ inputs.step }}"
+
+on:
+  workflow_dispatch:
+    inputs:
+      step:
+        description: "Paso del demo"
+        type: choice
+        options:
+          - smoke
+          - act1
+          - act2
+          - act3
+          - truth
+          - batch-a
+          - batch-b
+          - batch-c
+          - owner-reply
+          - ladder-status
+          - ladder-evaluate
+          - ledger-reset
+        default: smoke
+      resource:
+        description: "owner-reply: nombre del recurso (p. ej. old-build-cache)"
+        type: string
+        required: false
+      answer:
+        description: "owner-reply: respuesta del dueno"
+        type: choice
+        options: [release, claim]
+        default: release
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+concurrency:
+  group: demo
+  cancel-in-progress: false
+
+env:
+  TF_DIR: examples/orphan-hunter
+  TF_IN_AUTOMATION: "true"
+  TF_INPUT: "false"
+  TF_PLUGIN_CACHE_DIR: ${{ github.workspace }}/.terraform.d/plugin-cache
+  AWS_REGION: ${{ vars.AWS_REGION }}
+  TF_STATE_BUCKET: ${{ vars.TF_STATE_BUCKET }}
+  PYTHONUNBUFFERED: "1"
+
+jobs:
+  run:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    environment: demo
+    permissions:
+      contents: write
+      pull-requests: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - id: version
+        run: echo "terraform=$(cat .terraform-version)" >> "$GITHUB_OUTPUT"
+
+      - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
+        with:
+          terraform_version: ${{ steps.version.outputs.terraform }}
+          terraform_wrapper: false
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - run: pip install -r requirements.txt
+
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ env.TF_PLUGIN_CACHE_DIR }}
+          key: terraform-${{ runner.os }}-${{ hashFiles('**/.terraform.lock.hcl') }}
+
+      - uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+          role-duration-seconds: 3600
+          mask-aws-account-id: true
+
+      - name: terraform init
+        run: |
+          mkdir -p "$TF_PLUGIN_CACHE_DIR"
+          terraform -chdir="$TF_DIR" init -backend-config="bucket=$TF_STATE_BUCKET" -backend-config="region=$AWS_REGION"
+
+      - id: step
+        name: ${{ inputs.step }}
+        env:
+          STEP: ${{ inputs.step }}
+          RESOURCE: ${{ inputs.resource }}
+          ANSWER: ${{ inputs.answer }}
+        run: |
+          case "$STEP" in
+            smoke)           python scripts/smoke_test.py ;;
+            act1|act2|act3)  python scripts/run_agent.py --act "${STEP#act}" ;;
+            truth)           python scripts/show_inventory.py ;;
+            batch-*)         python scripts/reset_batch.py --to "${STEP#batch-}" ;;
+            owner-reply)     python scripts/owner_reply.py "$RESOURCE" "$ANSWER" ;;
+            ladder-status)   python scripts/ladder.py status ;;
+            ladder-evaluate) python scripts/ladder.py evaluate --ci ;;
+            ledger-reset)    python scripts/ladder.py reset ;;
+          esac
+
+      - name: Publicar el cambio de nivel
+        if: inputs.step == 'ladder-evaluate'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ACTION: ${{ steps.step.outputs.action }}
+          REASON: ${{ steps.step.outputs.reason }}
+        run: |
+          tfvars="$TF_DIR/terraform.tfvars"
+          if git diff --quiet -- "$tfvars"; then
+            echo "Sin cambio de nivel."
+            exit 0
+          fi
+          level="$(sed -nE 's/^trust_level[[:space:]]*=[[:space:]]*([0-9]+).*/\1/p' "$tfvars")"
+          remote="https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          if [ "$ACTION" = "demote" ]; then
+            # Ya se aplico en este run: se publica directo en main para que ningun apply la revierta.
+            git commit -am "ladder: trust_level ${level} (demote)"
+            git push "$remote" HEAD:main
+            exit 0
+          fi
+
+          if gh pr list --state open --json headRefName --jq '.[].headRefName' | grep -q '^ladder/'; then
+            echo "Ya hay un PR de la escalera abierto."
+            exit 0
+          fi
+          branch="ladder/level-${level}-${GITHUB_RUN_ID}"
+          git switch -c "$branch"
+          git commit -am "ladder: trust_level ${level} (${ACTION})"
+          git push "$remote" "$branch"
+          gh pr create --base main --head "$branch" \
+            --title "ladder: trust_level ${level}" \
+            --body "$(printf '**Evidencia del ledger:** %s\n\nEl merge de este PR es la aprobacion humana: terraform.yml aplica el nuevo nivel.\n' "$REASON")"

@@ -1,0 +1,8 @@
+* @Relight0
+
+/modules/                        @Relight0
+/examples/*/policies/            @Relight0
+/examples/*/data/ladder.json     @Relight0
+/examples/*/terraform.tfvars     @Relight0
+/bootstrap/                      @Relight0
+/.github/                        @Relight0

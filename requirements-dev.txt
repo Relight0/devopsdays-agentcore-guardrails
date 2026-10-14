@@ -1,0 +1,5 @@
+-r requirements.txt
+pytest>=8
+moto[ec2,ssm,dynamodb]>=5
+ruff>=0.8
+python-hcl2>=7

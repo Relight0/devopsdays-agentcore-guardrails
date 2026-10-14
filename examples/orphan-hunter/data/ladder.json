@@ -1,0 +1,39 @@
+{
+  "promote_after": 3,
+  "promote_on": [
+    "confirmed"
+  ],
+  "demote_on": [
+    "blocked",
+    "rejected"
+  ],
+  "levels": {
+    "0": {
+      "label": "observar y avisar",
+      "policies": [
+        "list_candidates",
+        "find_probable_owner",
+        "notify_owner"
+      ]
+    },
+    "1": {
+      "label": "cuarentena (reversible)",
+      "policies": [
+        "list_candidates",
+        "find_probable_owner",
+        "notify_owner",
+        "quarantine_resource"
+      ]
+    },
+    "2": {
+      "label": "eliminar tras cuarentena",
+      "policies": [
+        "list_candidates",
+        "find_probable_owner",
+        "notify_owner",
+        "quarantine_resource",
+        "delete_resource"
+      ]
+    }
+  }
+}

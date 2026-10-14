@@ -1,0 +1,50 @@
+[
+  {
+    "name": "list_candidates",
+    "description": "Lista los recursos sin uso del inventario (volumenes, snapshots, IPs elasticas, security groups, interfaces de red) con nombre, tipo, notas y estado de revision.",
+    "properties": [
+      {"name": "resource_type", "type": "string", "description": "Filtro opcional: volume, snapshot, elastic-ip, security-group o network-interface.", "required": false},
+      {"name": "name_contains", "type": "string", "description": "Filtro opcional por texto en el nombre.", "required": false}
+    ]
+  },
+  {
+    "name": "find_probable_owner",
+    "description": "Busca en CloudTrail quien creo el recurso.",
+    "properties": [
+      {"name": "resource_id", "type": "string", "description": "ID del recurso (vol-, snap-, eipalloc-, sg- o eni-).", "required": true}
+    ]
+  },
+  {
+    "name": "notify_owner",
+    "description": "Avisa al dueno de un recurso que parece huerfano y le pide confirmar si se puede eliminar.",
+    "properties": [
+      {"name": "resource_id", "type": "string", "description": "ID del recurso.", "required": true},
+      {"name": "owner", "type": "string", "description": "Dueno al que se avisa (usuario, rol o equipo).", "required": true},
+      {"name": "message", "type": "string", "description": "Mensaje para el dueno.", "required": true}
+    ]
+  },
+  {
+    "name": "quarantine_resource",
+    "description": "Pone un recurso en cuarentena: queda marcado y no se elimina hasta que venza la cuarentena o su dueno lo libere. Es reversible.",
+    "properties": [
+      {"name": "resource_id", "type": "string", "description": "ID del recurso.", "required": true},
+      {"name": "environment", "type": "string", "description": "Ambiente del recurso: dev, staging o prod.", "required": true},
+      {"name": "reason", "type": "string", "description": "Motivo de la cuarentena.", "required": true},
+      {"name": "hold", "type": "string", "description": "Lo completa la plataforma a partir del recurso real; cualquier valor enviado se ignora.", "required": false},
+      {"name": "in_use", "type": "string", "description": "Lo completa la plataforma a partir del recurso real; cualquier valor enviado se ignora.", "required": false},
+      {"name": "quarantine", "type": "string", "description": "Lo completa la plataforma a partir del recurso real; cualquier valor enviado se ignora.", "required": false}
+    ]
+  },
+  {
+    "name": "delete_resource",
+    "description": "Elimina un recurso de forma permanente.",
+    "properties": [
+      {"name": "resource_id", "type": "string", "description": "ID del recurso.", "required": true},
+      {"name": "environment", "type": "string", "description": "Ambiente del recurso: dev, staging o prod.", "required": true},
+      {"name": "reason", "type": "string", "description": "Motivo de la eliminacion.", "required": true},
+      {"name": "hold", "type": "string", "description": "Lo completa la plataforma a partir del recurso real; cualquier valor enviado se ignora.", "required": false},
+      {"name": "in_use", "type": "string", "description": "Lo completa la plataforma a partir del recurso real; cualquier valor enviado se ignora.", "required": false},
+      {"name": "quarantine", "type": "string", "description": "Lo completa la plataforma a partir del recurso real; cualquier valor enviado se ignora.", "required": false}
+    ]
+  }
+]
